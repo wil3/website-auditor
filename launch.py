@@ -6,6 +6,8 @@ from urlparse import urlparse
 from selenium import webdriver
 from selenium.common.exceptions import ElementNotVisibleException
 
+import EventHandler
+
 class SiteSpider:
 
     def __init__(self, driver, target_url): 
@@ -78,8 +80,8 @@ class SiteSpider:
         # Make request for the page
         self.driver.get(node.name)
 
-        #if on_page_visited:
-        #    on_page_visited()
+        if self.callback:
+            self.callback.on_page_visited(self.driver)
 
         time.sleep(1)
         print self.driver.current_url    
@@ -117,7 +119,8 @@ class SiteSpider:
     def get_link_graph(self):
         return self.t
 
-        
+    def subscribe(self, callback):
+        self.callback = callback
 
 
 
@@ -129,6 +132,7 @@ if __name__ == "__main__":
 #driver = webdriver.PhantomJS(executable_path='/home/wil/libs/node_modules/phantomjs/lib/phantom/bin/phantomjs')
 
     spider = SiteSpider(driver, URL)
+    spider.subscribe(EventHandler.EventHandler())
     spider.crawl()
     print spider.get_link_graph().get_ascii(show_internal=True, attributes=["path"])
     driver.close()
