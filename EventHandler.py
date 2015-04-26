@@ -5,6 +5,6 @@ class EventHandler(SpiderEventListener):
         pass
 
     def on_page_visited(self, driver):
-        print "HERE! " , driver.current_url
+        print "On page visited handler " , driver.current_url
         pass
 
