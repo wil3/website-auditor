@@ -5,9 +5,13 @@ from ete2 import Tree
 from urlparse import urlparse
 from selenium import webdriver
 from selenium.common.exceptions import ElementNotVisibleException
-
+import logging
 import EventHandler
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("sitespider")
+level = logging.getLevelName('DEBUG')
+logger.setLevel(level)
 class SiteSpider:
 
     def __init__(self, driver, target_url, depth=-1, delay=1): 
@@ -75,6 +79,9 @@ class SiteSpider:
             return parse.path
 
     def _get_link_url(self, a):
+#TODO should we follow all links that dont have a url?
+#THere maybe javascript handling the target
+
         child_url = a.get_attribute("href")
         if child_url == None or child_url == '':
            return None 
@@ -86,7 +93,6 @@ class SiteSpider:
                 a.click()
                 child_url = self.driver.current_url
                 num_win_after = len(self.driver.window_handles)
-                print "Before %d After %d" % (num_win_before, num_win_after)
                 if num_win_after == num_win_before:
                     self.driver.back()
                 else:
@@ -95,7 +101,7 @@ class SiteSpider:
                     self.driver.close()
                     self.driver.switch_to_window(w[0])
             except ElementNotVisibleException as e:
-                print "Couldnt click element possibly hidden"
+                #logger.debug("Couldnt click element possibly hidden")
                 return None
         return child_url
     
@@ -106,7 +112,6 @@ class SiteSpider:
         return self._is_same_domain(child_url) and not self._has_visited(child, child_url)
     def _close_windows(self):
         wins = self.driver.window_handles
-        print "Number of windows " + str(len(wins))
     def _crawl(self, node):
         # Make request for the page
         self.driver.get(node.name)
@@ -115,8 +120,8 @@ class SiteSpider:
             self.callback.on_page_visited(self.driver)
 
         time.sleep(self.delay)
-        print self.driver.current_url    
-        print self.t.get_ascii(show_internal=True, attributes=["path"])
+        logger.info(self.driver.current_url)    
+        logger.debug( self.t.get_ascii(show_internal=True, attributes=["path"]))
 
         # Access by index because if we move to the 
         # next page the context of the page is lost when we come back 
