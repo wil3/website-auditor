@@ -76,24 +76,25 @@ class SiteSpider:
 
     def _get_link_url(self, a):
         child_url = a.get_attribute("href")
-        if child_url == None or child_url == '':
-           return None 
+        if not child_url:
+            return None
+
         # If pound then JS must handle this link so follow it to see
         # where it goes
         if child_url.endswith("#"):
             try:
-                num_win_before = len(self.driver.window_handles)
+                window_handle = self.driver.current_window_handle
                 a.click()
                 child_url = self.driver.current_url
-                num_win_after = len(self.driver.window_handles)
-                print "Before %d After %d" % (num_win_before, num_win_after)
-                if num_win_after == num_win_before:
+                handles = self.driver.window_handles
+                if len(handles) == 1:
                     self.driver.back()
                 else:
-                    w = self.driver.window_handles
-                    self.driver.switch_to_window(w[1])
-                    self.driver.close()
-                    self.driver.switch_to_window(w[0])
+                    for handle in self.driver.window_handles:
+                        if handle != window_handle:
+                            self.driver.switch_to_window(handle)
+                            self.driver.close()
+                    self.driver.switch_to_window(window_handle)
             except ElementNotVisibleException as e:
                 print "Couldnt click element possibly hidden"
                 return None
