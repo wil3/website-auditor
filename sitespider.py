@@ -82,9 +82,15 @@ class SiteSpider:
         # where it goes
         if href.endswith("#"):
             try:
+                num_win_before = len(self.driver.window_handles)
                 a.click()
-                child_url = driver.current_url
-                driver.back()
+                child_url = self.driver.current_url
+                num_win_after = len(self.driver.window_handles)
+                print "Before %d After %d" % (num_win_before, num_win_after)
+                if num_win_after == num_win_before:
+                    self.driver.back()
+                else:
+                    self.driver.close()
             except ElementNotVisibleException as e:
                 print "Couldnt click element possibly hidden"
                 return None
@@ -98,7 +104,9 @@ class SiteSpider:
 
     def _should_advance(self, child, child_url):
         return self._is_same_domain(child_url) and not self._has_visited(child, child_url)
-
+    def _close_windows(self):
+        wins = self.driver.window_handles
+        print "Number of windows " + str(len(wins))
     def _crawl(self, node):
         # Make request for the page
         self.driver.get(node.name)
@@ -162,10 +170,10 @@ if __name__ == "__main__":
     #URL = "https://www.etsy.com/"
 #URL = "https://danielkummer.github.io/git-flow-cheatsheet/"
     URL = "https://www.etsy.com/"
-    driver = webdriver.Firefox() 
+    d = webdriver.Firefox() 
 #driver = webdriver.PhantomJS(executable_path='/home/wil/libs/node_modules/phantomjs/lib/phantom/bin/phantomjs')
 
-    spider = SiteSpider(driver, URL, depth=2, delay=2)
+    spider = SiteSpider(d, URL, depth=2, delay=2)
     #spider.auth(auth_handler)
     
     spider.subscribe(EventHandler.EventHandler())
