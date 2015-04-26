@@ -35,11 +35,12 @@ class SiteSpider:
             path1 = urlparse(url1).path.split("/")
             path2 = urlparse(url2).path.split("/")
             same = True
-            for i in range(self.depth):
+            for i in range(min(min(self.depth, len(path1)),len(path2))):
                 if path1[i] != path2[i]:
                     same = False
                     break
 
+            #print "Path1 %s Path2 %s Same? %s" % (path1, path2, str(same))
             return same
 
     def _has_visited(self, node, url):
@@ -52,14 +53,14 @@ class SiteSpider:
                 return True
             else:
                 for sister in ancestor.get_sisters():
-                    if sister.name == url:
+                    if self._url_same(sister.name,url):
                         return True
                 
         return False
 
     def _has_sister(self, node,url):
         for sister in node.children:
-            if sister.name == url:
+            if self._url_same(sister.name,url):
                 return True
         return False
 
@@ -74,13 +75,12 @@ class SiteSpider:
             return parse.path
 
     def _get_link_url(self, a):
-       
-        href = a.get_attribute("href")
-        if href == None:
+        child_url = a.get_attribute("href")
+        if child_url == None or child_url == '':
            return None 
         # If pound then JS must handle this link so follow it to see
         # where it goes
-        if href.endswith("#"):
+        if child_url.endswith("#"):
             try:
                 num_win_before = len(self.driver.window_handles)
                 a.click()
@@ -90,13 +90,13 @@ class SiteSpider:
                 if num_win_after == num_win_before:
                     self.driver.back()
                 else:
+                    w = self.driver.window_handles
+                    self.driver.switch_to_window(w[1])
                     self.driver.close()
+                    self.driver.switch_to_window(w[0])
             except ElementNotVisibleException as e:
                 print "Couldnt click element possibly hidden"
                 return None
-        else:
-            child_url = href
-
         return child_url
     
     def crawl(self):
