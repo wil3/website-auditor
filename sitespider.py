@@ -10,11 +10,12 @@ import EventHandler
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("sitespider")
-level = logging.getLevelName('DEBUG')
-logger.setLevel(level)
+logger.setLevel(logging.DEBUG)
+fh = logging.FileHandler('out.log')
+logger.addHandler(fh)
 class SiteSpider:
 
-    def __init__(self, driver, target_url, depth=-1, delay=1): 
+    def __init__(self, driver, target_url, depth=-1, delay=5): 
         self.driver = driver
         self.target_url = target_url
         self.t = Tree()
@@ -79,29 +80,27 @@ class SiteSpider:
             return parse.path
 
     def _get_link_url(self, a):
-#TODO should we follow all links that dont have a url?
-#THere maybe javascript handling the target
-
         child_url = a.get_attribute("href")
-        if child_url == None or child_url == '':
-           return None 
+        if not child_url:
+            return None
+
         # If pound then JS must handle this link so follow it to see
         # where it goes
         if child_url.endswith("#"):
             try:
-                num_win_before = len(self.driver.window_handles)
+                window_handle = self.driver.current_window_handle
                 a.click()
                 child_url = self.driver.current_url
-                num_win_after = len(self.driver.window_handles)
-                if num_win_after == num_win_before:
+                handles = self.driver.window_handles
+                if len(handles) == 1:
                     self.driver.back()
                 else:
-                    w = self.driver.window_handles
-                    self.driver.switch_to_window(w[1])
-                    self.driver.close()
-                    self.driver.switch_to_window(w[0])
+                    for handle in self.driver.window_handles:
+                        if handle != window_handle:
+                            self.driver.switch_to_window(handle)
+                            self.driver.close()
+                    self.driver.switch_to_window(window_handle)
             except ElementNotVisibleException as e:
-                #logger.debug("Couldnt click element possibly hidden")
                 return None
         return child_url
     
@@ -172,13 +171,11 @@ def auth_handler(driver, url):
     driver.find_element_by_id('signin-button').click()
 
 if __name__ == "__main__":
-    #URL = "https://www.etsy.com/"
-#URL = "https://danielkummer.github.io/git-flow-cheatsheet/"
     URL = "https://www.etsy.com/"
     d = webdriver.Firefox() 
 #driver = webdriver.PhantomJS(executable_path='/home/wil/libs/node_modules/phantomjs/lib/phantom/bin/phantomjs')
 
-    spider = SiteSpider(d, URL, depth=2, delay=2)
+    spider = SiteSpider(d, URL, depth=2, delay=5)
     #spider.auth(auth_handler)
     
     spider.subscribe(EventHandler.EventHandler())
