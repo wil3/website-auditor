@@ -23,6 +23,7 @@ class SiteSpider:
         self.root.add_features(path=URL, advance=True)
         self.depth = depth
         self.delay = delay
+        self.subscribers = []
 
     def auth(self, handler):
         handler(self.driver, self.target_url)
@@ -111,12 +112,16 @@ class SiteSpider:
         return self._is_same_domain(child_url) and not self._has_visited(child, child_url)
     def _close_windows(self):
         wins = self.driver.window_handles
+
+    def _call_subscribers(self):
+        for s in self.subscribers:
+            s.on_page_visited(self.driver)
+
     def _crawl(self, node):
         # Make request for the page
         self.driver.get(node.name)
-
-        if self.callback:
-            self.callback.on_page_visited(self.driver)
+        
+        self._call_subscribers()
 
         time.sleep(self.delay)
         logger.info(self.driver.current_url)    
@@ -154,9 +159,8 @@ class SiteSpider:
     def get_link_graph(self):
         return self.t
 
-    def subscribe(self, callback):
-        self.callback = callback
-
+    def add_subscriber(self, subscriber):
+        self.subscribers.append(subscriber)
 
 def auth_handler(driver, url):
     username='bbarfoo'
@@ -178,7 +182,8 @@ if __name__ == "__main__":
     spider = SiteSpider(d, URL, depth=2, delay=5)
     #spider.auth(auth_handler)
     
-    spider.subscribe(EventHandler.EventHandler())
+    spider.add_subscriber(EventHandler.EventHandler())
+    spider.add_subscriber(EventHandler.ExternalContent(URL))
     spider.crawl()
     print spider.get_link_graph().get_ascii(show_internal=True, attributes=["path"])
     
