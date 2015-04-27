@@ -17,6 +17,7 @@ logger.addHandler(fh)
 
 class UrlCache:
     def __init__(self, depth):
+        assert(depth > 0)
         self.depth = depth
         self.visited = Set()
 
@@ -31,7 +32,7 @@ class UrlCache:
         self.visited.add(self._trim_to_depth(url))
 
     def __str__(self):
-        return '\n'.join(self.visited)
+        return '\nCACHE BEGIN.\n' + '\n'.join(self.visited) + '\nCACHE END.'
 
 class SiteSpider:
 
@@ -51,7 +52,7 @@ class SiteSpider:
 
     def _is_same_domain(self, href):
         curr = urlparse(href)
-        base = urlparse(URL)
+        base = urlparse(self.target_url)
         #print "%s =? %s" % (curr.netloc, base.netloc)
         return curr.netloc == base.netloc
 
@@ -73,7 +74,7 @@ class SiteSpider:
     def _has_visited(self, url):
         return self.url_cache.has_visited(url)
 
-    def _has_sister(self, node,url):
+    def _has_sister(self, node, url):
         for sister in node.children:
             if self._url_same(sister.name,url):
                 return True
@@ -97,21 +98,23 @@ class SiteSpider:
         # If pound then JS must handle this link so follow it to see
         # where it goes
         if child_url.endswith("#"):
-            try:
-                window_handle = self.driver.current_window_handle
-                a.click()
-                child_url = self.driver.current_url
-                handles = self.driver.window_handles
-                if len(handles) == 1:
-                    self.driver.back()
-                else:
-                    for handle in self.driver.window_handles:
-                        if handle != window_handle:
-                            self.driver.switch_to_window(handle)
-                            self.driver.close()
-                    self.driver.switch_to_window(window_handle)
-            except ElementNotVisibleException as e:
-                return None
+            logger.debug("Ignoring dynamic link.")
+            return None
+            # try:
+            #     window_handle = self.driver.current_window_handle
+            #     a.click()
+            #     child_url = self.driver.current_url
+            #     handles = self.driver.window_handles
+            #     if len(handles) == 1:
+            #         self.driver.back()
+            #     else:
+            #         for handle in self.driver.window_handles:
+            #             if handle != window_handle:
+            #                 self.driver.switch_to_window(handle)
+            #                 self.driver.close()
+            #         self.driver.switch_to_window(window_handle)
+            # except ElementNotVisibleException as e:
+            #     return None
         return child_url
     
     def crawl(self):
@@ -131,29 +134,45 @@ class SiteSpider:
         # Make request for the page
         self.url_cache.cache(node.name)
         self.driver.get(node.name)
-        
+       
+        # There is an issue if the link is in the same domain but then
+        # it does a redirect to a url outside the domain. We wont know until
+        # we visit it. If this happens abort and remove from tree
+        if not self._is_same_domain(self.driver.current_url):
+            node.detach()
+            return
+
         self._call_subscribers()
 
         time.sleep(self.delay)
         logger.info(self.driver.current_url)    
-        logger.debug(self.t.get_ascii(show_internal=True, attributes=["path"]))
+        #logger.debug( self.t.get_ascii(show_internal=True, attributes=["path"]))
 
         # Access by index because if we move to the 
         # next page the context of the page is lost when we come back 
         anchors = self.driver.find_elements_by_tag_name("a")
+        # anchor_set = Set(anchors)
         l = len(anchors)
         for i in range(l):
-            a = self.driver.find_elements_by_tag_name("a")[i]
+            # new_anchor_set = Set(new_anchors)
+            # anchor_diff = new_anchor_set - anchor_set
+            # vanished_anchors = anchor_set - new_anchor_set
+            # if anchor_diff:
+            #     logger.debug('New Anchors: ' + '\n'.join([anchor.text for anchor in anchor_diff]))
+            # if vanished_anchors:
+            #     logger.debug('Vanished Anchors: ' + '\n'.join([anchor.text for anchor in anchor_diff]))
             
-            child_url = self._get_link_url(a)        
+            new_anchors = self.driver.find_elements_by_tag_name("a")
+            assert len(new_anchors) == len(anchors)
+            a = new_anchors[i]
+            child_url = self._get_link_url(a)
             
             #Only add if its not already there
             if not child_url or self._has_visited(child_url):
                 continue
             
             child = node.add_child(name=child_url)
-            path = self._get_url_path(child_url)
-            child.add_feature("path", path)
+            child.add_feature("path", self._get_url_path(child_url))
 
             # Determine if the link should be advanced forward
             # We never want to start crawling other pages
@@ -162,8 +181,8 @@ class SiteSpider:
             else:
                 child.add_feature("advance", False)
         
+        logger.debug(self.url_cache)
 
-        print self.url_cache
         #Process all the found links
         for child in node.children:
             if child.advance:
@@ -190,14 +209,17 @@ def auth_handler(driver, url):
 if __name__ == "__main__":
     URL = "https://www.etsy.com/"
     d = webdriver.Firefox() 
-#driver = webdriver.PhantomJS(executable_path='/home/wil/libs/node_modules/phantomjs/lib/phantom/bin/phantomjs')
+    # d = webdriver.PhantomJS(executable_path='/home/wil/libs/node_modules/phantomjs/lib/phantom/bin/phantomjs')
 
     spider = SiteSpider(d, URL, depth=2, delay=5)
     #spider.auth(auth_handler)
     
     spider.add_subscriber(EventHandler.EventHandler())
-    spider.add_subscriber(EventHandler.ExternalContent(URL))
+    spider.add_subscriber(EventHandler.ExternalContent(d, URL))
     spider.crawl()
     print spider.get_link_graph().get_ascii(show_internal=True, attributes=["path"])
     
     d.close()
+
+
+    
