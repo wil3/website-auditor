@@ -30,7 +30,7 @@ class SiteSpider:
 
     def _is_same_domain(self, href):
         curr = urlparse(href)
-        base = urlparse(URL)
+        base = urlparse(self.target_url)
         #print "%s =? %s" % (curr.netloc, base.netloc)
         return curr.netloc == base.netloc
 
@@ -120,12 +120,19 @@ class SiteSpider:
     def _crawl(self, node):
         # Make request for the page
         self.driver.get(node.name)
-        
+       
+        # There is an issue if the link is in the same domain but then
+        # it does a redirect to a url outside the domain. We wont know until
+        # we visit it. If this happens abort and remove from tree
+        if not self._is_same_domain(self.driver.current_url):
+            node.detach()
+            return
+
         self._call_subscribers()
 
         time.sleep(self.delay)
         logger.info(self.driver.current_url)    
-        logger.debug( self.t.get_ascii(show_internal=True, attributes=["path"]))
+        #logger.debug( self.t.get_ascii(show_internal=True, attributes=["path"]))
 
         # Access by index because if we move to the 
         # next page the context of the page is lost when we come back 
@@ -176,14 +183,14 @@ def auth_handler(driver, url):
 
 if __name__ == "__main__":
     URL = "https://www.etsy.com/"
-    d = webdriver.Firefox() 
-#driver = webdriver.PhantomJS(executable_path='/home/wil/libs/node_modules/phantomjs/lib/phantom/bin/phantomjs')
+    #d = webdriver.Firefox() 
+    d = webdriver.PhantomJS(executable_path='/home/wil/libs/node_modules/phantomjs/lib/phantom/bin/phantomjs')
 
     spider = SiteSpider(d, URL, depth=2, delay=5)
     #spider.auth(auth_handler)
     
     spider.add_subscriber(EventHandler.EventHandler())
-    spider.add_subscriber(EventHandler.ExternalContent(URL))
+    spider.add_subscriber(EventHandler.ExternalContent(d, URL))
     spider.crawl()
     print spider.get_link_graph().get_ascii(show_internal=True, attributes=["path"])
     
