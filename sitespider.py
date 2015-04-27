@@ -5,12 +5,37 @@ from ete2 import Tree
 from urlparse import urlparse
 from selenium import webdriver
 from selenium.common.exceptions import ElementNotVisibleException
-
+import logging
 import EventHandler
+from sets import Set
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("sitespider")
+logger.setLevel(logging.DEBUG)
+fh = logging.FileHandler('out.log')
+logger.addHandler(fh)
+
+class UrlCache:
+    def __init__(self, depth):
+        self.depth = depth
+        self.visited = Set()
+
+    def _trim_to_depth(self, url):
+        tokens = urlparse(url).path.split("/")
+        return urlparse(url).netloc + '/'.join([t for t in tokens[0:self.depth]])
+
+    def has_visited(self, url):
+        return self._trim_to_depth(url) in self.visited
+
+    def cache(self, url):
+        self.visited.add(self._trim_to_depth(url))
+
+    def __str__(self):
+        return '\n'.join(self.visited)
 
 class SiteSpider:
 
-    def __init__(self, driver, target_url, depth=-1, delay=1): 
+    def __init__(self, driver, target_url, depth=-1, delay=5): 
         self.driver = driver
         self.target_url = target_url
         self.t = Tree()
@@ -18,6 +43,8 @@ class SiteSpider:
         self.root.add_features(path=URL, advance=True)
         self.depth = depth
         self.delay = delay
+        self.subscribers = []
+        self.url_cache = UrlCache(self.depth)
 
     def auth(self, handler):
         handler(self.driver, self.target_url)
@@ -43,20 +70,8 @@ class SiteSpider:
             #print "Path1 %s Path2 %s Same? %s" % (path1, path2, str(same))
             return same
 
-    def _has_visited(self, node, url):
-        '''
-        Look at the curent nodes ancestors and those nodes sisters/brothers
-        to see if the link has ever been visited
-        '''
-        for ancestor in node.iter_ancestors():
-            if self._url_same(ancestor.name,url):
-                return True
-            else:
-                for sister in ancestor.get_sisters():
-                    if self._url_same(sister.name,url):
-                        return True
-                
-        return False
+    def _has_visited(self, url):
+        return self.url_cache.has_visited(url)
 
     def _has_sister(self, node,url):
         for sister in node.children:
@@ -96,7 +111,6 @@ class SiteSpider:
                             self.driver.close()
                     self.driver.switch_to_window(window_handle)
             except ElementNotVisibleException as e:
-                print "Couldnt click element possibly hidden"
                 return None
         return child_url
     
@@ -104,20 +118,25 @@ class SiteSpider:
         self._crawl(self.root)
 
     def _should_advance(self, child, child_url):
-        return self._is_same_domain(child_url) and not self._has_visited(child, child_url)
+        return self._is_same_domain(child_url) and not self._has_visited(child_url)
+
     def _close_windows(self):
         wins = self.driver.window_handles
-        print "Number of windows " + str(len(wins))
+
+    def _call_subscribers(self):
+        for s in self.subscribers:
+            s.on_page_visited(self.driver)
+
     def _crawl(self, node):
         # Make request for the page
+        self.url_cache.cache(node.name)
         self.driver.get(node.name)
-
-        if self.callback:
-            self.callback.on_page_visited(self.driver)
+        
+        self._call_subscribers()
 
         time.sleep(self.delay)
-        print self.driver.current_url    
-        print self.t.get_ascii(show_internal=True, attributes=["path"])
+        logger.info(self.driver.current_url)    
+        logger.debug(self.t.get_ascii(show_internal=True, attributes=["path"]))
 
         # Access by index because if we move to the 
         # next page the context of the page is lost when we come back 
@@ -129,11 +148,12 @@ class SiteSpider:
             child_url = self._get_link_url(a)        
             
             #Only add if its not already there
-            if child_url == None or self._has_sister(node, child_url):
+            if not child_url or self._has_visited(child_url):
                 continue
             
             child = node.add_child(name=child_url)
-            child.add_feature("path", self._get_url_path(child_url))
+            path = self._get_url_path(child_url)
+            child.add_feature("path", path)
 
             # Determine if the link should be advanced forward
             # We never want to start crawling other pages
@@ -143,6 +163,7 @@ class SiteSpider:
                 child.add_feature("advance", False)
         
 
+        print self.url_cache
         #Process all the found links
         for child in node.children:
             if child.advance:
@@ -151,9 +172,8 @@ class SiteSpider:
     def get_link_graph(self):
         return self.t
 
-    def subscribe(self, callback):
-        self.callback = callback
-
+    def add_subscriber(self, subscriber):
+        self.subscribers.append(subscriber)
 
 def auth_handler(driver, url):
     username='bbarfoo'
@@ -168,20 +188,16 @@ def auth_handler(driver, url):
     driver.find_element_by_id('signin-button').click()
 
 if __name__ == "__main__":
-    #URL = "https://www.etsy.com/"
-#URL = "https://danielkummer.github.io/git-flow-cheatsheet/"
     URL = "https://www.etsy.com/"
     d = webdriver.Firefox() 
 #driver = webdriver.PhantomJS(executable_path='/home/wil/libs/node_modules/phantomjs/lib/phantom/bin/phantomjs')
 
-    spider = SiteSpider(d, URL, depth=2, delay=2)
+    spider = SiteSpider(d, URL, depth=2, delay=5)
     #spider.auth(auth_handler)
     
-    spider.subscribe(EventHandler.EventHandler())
+    spider.add_subscriber(EventHandler.EventHandler())
+    spider.add_subscriber(EventHandler.ExternalContent(URL))
     spider.crawl()
     print spider.get_link_graph().get_ascii(show_internal=True, attributes=["path"])
     
-    driver.close()
-
-
-    
+    d.close()
