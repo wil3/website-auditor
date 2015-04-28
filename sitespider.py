@@ -121,7 +121,7 @@ class SiteSpider:
 
     def _call_subscribers(self):
         for s in self.subscribers:
-            s.on_page_visited(self.driver)
+            s.on_page_visited()
 
     def _crawl(self, node):
         # Make request for the page
@@ -192,17 +192,6 @@ class SiteSpider:
     def add_subscriber(self, subscriber):
         self.subscribers.append(subscriber)
 
-def auth_handler(driver, url):
-    username='bbarfoo'
-    password='password'
-    print url
-    driver.get(url)
-    login_link = driver.find_element_by_id('sign-in')
-    login_link.click()
-
-    driver.find_element_by_id('username-existing').send_keys(username)
-    driver.find_element_by_id('password-existing').send_keys(password)
-    driver.find_element_by_id('signin-button').click()
 
 if __name__ == "__main__":
     URL = "https://www.etsy.com/"
@@ -228,7 +217,9 @@ if __name__ == "__main__":
     spider = SiteSpider(d, URL, depth=2, delay=5)
     #spider.auth(auth_handler)
     
-    spider.add_subscriber(EventHandler.ExternalContent(d, URL,path_depth=2 ))
+    spider.add_subscriber(EventHandler.ExternalContent(d, URL, path_depth=2 ))
+    spider.add_subscriber(EventHandler.MixedContent(d, URL))
+    spider.add_subscriber(EventHandler.CookieHandler(d, URL))
     spider.crawl()
     print spider.get_link_graph().get_ascii(show_internal=True, attributes=["path"])
     
