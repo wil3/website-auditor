@@ -2,11 +2,11 @@
 
 ##Set-up
 
-pip install -r requirements.txt
+1. pip install -r requirements.txt
 
-git clone https://github.com/allfro/pymiproxy.git
+2. git clone https://github.com/allfro/pymiproxy.git
 
-sudo python setup.py install
+3. sudo python setup.py install
 
 
 ##Run
@@ -14,6 +14,6 @@ sudo python setup.py install
 1. First run the proxy
 `python mitm.py`
 
-2. Run the crawler
-`python sitespider.py`
+2. Run reconnaissance on site 
+`python recon.py [target url]`
 

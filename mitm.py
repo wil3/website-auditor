@@ -6,9 +6,9 @@ import urlparse
 import base64
 logging.basicConfig(level=logging.FATAL)
 
-logger = logging.getLogger("fp")
+logger = logging.getLogger("mitm")
 logger.setLevel(logging.DEBUG)
-fh = logging.FileHandler('fingerprint.csv')
+fh = logging.FileHandler('mitm.csv')
 logger.addHandler(fh)
 
 class RecordInterceptor(RequestInterceptorPlugin, ResponseInterceptorPlugin):
