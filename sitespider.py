@@ -35,7 +35,6 @@ class UrlCache:
         return '\nCACHE BEGIN.\n' + '\n'.join(self.visited) + '\nCACHE END.'
 
 class SiteSpider:
-
     def __init__(self, driver, target_url, depth=-1, delay=5): 
         self.driver = driver
         self.target_url = target_url
@@ -217,6 +216,7 @@ if __name__ == "__main__":
     spider.add_subscriber(EventHandler.EventHandler(d))
     spider.add_subscriber(EventHandler.ExternalContent(d, URL))
     spider.add_subscriber(EventHandler.MixedContent(d, URL))
+    spider.add_subscriber(EventHandler.CookieHandler(d, URL))
     spider.crawl()
     print spider.get_link_graph().get_ascii(show_internal=True, attributes=["path"])
     
