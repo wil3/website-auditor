@@ -98,7 +98,7 @@ class SiteSpider:
         # If pound then JS must handle this link so follow it to see
         # where it goes
         if child_url.endswith("#"):
-            logger.debug("Ignoring dynamic link.")
+            # logger.debug("Ignoring dynamic link.")
             return None
             # try:
             #     window_handle = self.driver.current_window_handle
@@ -128,7 +128,7 @@ class SiteSpider:
 
     def _call_subscribers(self):
         for s in self.subscribers:
-            s.on_page_visited(self.driver)
+            s.on_page_visited()
 
     def _crawl(self, node):
         # Make request for the page
@@ -208,14 +208,15 @@ def auth_handler(driver, url):
 
 if __name__ == "__main__":
     URL = "https://www.etsy.com/"
-    d = webdriver.Firefox() 
-    # d = webdriver.PhantomJS(executable_path='/home/wil/libs/node_modules/phantomjs/lib/phantom/bin/phantomjs')
+    # d = webdriver.Firefox()
+    d = webdriver.PhantomJS(executable_path='/home/nikolaj/node_modules/phantomjs/lib/phantom/bin/phantomjs')
 
     spider = SiteSpider(d, URL, depth=2, delay=5)
     #spider.auth(auth_handler)
     
-    spider.add_subscriber(EventHandler.EventHandler())
+    spider.add_subscriber(EventHandler.EventHandler(d))
     spider.add_subscriber(EventHandler.ExternalContent(d, URL))
+    spider.add_subscriber(EventHandler.MixedContent(d, URL))
     spider.crawl()
     print spider.get_link_graph().get_ascii(show_internal=True, attributes=["path"])
     
