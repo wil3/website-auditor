@@ -4,21 +4,13 @@ from SpiderEventListener import SpiderEventListener
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("external")
 logger.setLevel(logging.DEBUG)
-fh = logging.FileHandler('external.log')
+fh = logging.FileHandler('external_resources.csv')
 logger.addHandler(fh)
 
-fp_logger = logging.getLogger("fp")
-fp_fh = logging.FileHandler('fingerprints.csv')
-fp_logger.addHandler(fp_fh)
+#fp_logger = logging.getLogger("fp")
+#fp_fh = logging.FileHandler('external_resources.csv')
+#fp_logger.addHandler(fp_fh)
 
-class EventHandler(SpiderEventListener):
-
-    def __init__(self):
-        pass
-
-    def on_page_visited(self, driver):
-        print "On page visited handler " , driver.current_url
-        pass
 
 class ExternalContent(SpiderEventListener):
     '''
@@ -51,13 +43,13 @@ class ExternalContent(SpiderEventListener):
         self._extract_src(embeds, "src")
 
         iframes = self.driver.find_elements_by_tag_name("iframe")
-        self._extract_src(embeds, "src")
+        self._extract_src(iframes, "src")
 
         objects = self.driver.find_elements_by_tag_name("objects")
-        self._extract_src(embeds, "data")
+        self._extract_src(objects, "data")
         
         sources = self.driver.find_elements_by_tag_name("source")
-        self._extract_src(embeds, "src")
+        self._extract_src(sources, "src")
     
     def _get_short_path(self, path):
         if self.path_depth < 0:
@@ -76,28 +68,24 @@ class ExternalContent(SpiderEventListener):
                 netloc = parse.netloc
                 scheme = parse.scheme
 
-                is_mixed = False
-                if scheme == 'http':
-                    #logger.debug("FOUND MIXED CONTENT page=" + page + " tag=" + el.tag_name + " src=" + src)
-                    is_mixed = True
                
                 #Finger print all of the pages in the same domain
                 # we want to look for other domains that will make this 
                 # unique
-                if netloc == self.domain:
-                    short = self._get_short_path(page_path)
-                    if not(short in self.fingerprinted):
-                        self._fingerprint(is_mixed, short, netloc)
-                        self.fingerprinted.append(short)
+                #if netloc == self.domain:
+                #    short = self._get_short_path(page_path)
+                #    if not(short in self.fingerprinted):
+                #        self._fingerprint(is_mixed, short, netloc)
+                #        self.fingerprinted.append(short)
                 
-                #logger.debug("src " + src + " netloc " + netloc)
-                # keep track of all the possible domains used
-                if not(netloc in self.external):
-                    self.external.append(netloc)
-                    logger.debug(el.tag_name + "," + netloc + "," + src + "," + page)
+                # keep track of all the possible domains used and which type
+                # of references they have embedded
+                if not((scheme,netloc,el.tag_name) in self.external):
+                    self.external.append((scheme, netloc,el.tag_name))
+                    logger.debug(el.tag_name + "," + scheme + "," + netloc + "," + src + "," + page)
     
-    def _fingerprint(self, is_mixed, page, external_domain):
-        fp_logger.info(str(is_mixed) + "," + page + "," + external_domain)
+    #def _fingerprint(self, is_mixed, page, external_domain):
+    #    fp_logger.info(str(is_mixed) + "," + page + "," + external_domain)
 
 
 class MixedContent(SpiderEventListener):

@@ -5,9 +5,11 @@ from ete2 import Tree
 from urlparse import urlparse
 from selenium import webdriver
 from selenium.common.exceptions import ElementNotVisibleException
+from selenium.webdriver.common.proxy import *
 import logging
 import EventHandler
 from sets import Set
+import base64
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("sitespider")
@@ -124,6 +126,11 @@ class SiteSpider:
     def _crawl(self, node):
         # Make request for the page
         self.url_cache.cache(node.name)
+
+        #Hack to tell the proxy we are requesting a new page
+        b64 = base64.b64encode(node.name)
+        proxy_signal_url = 'http://127.0.0.1:8080/?page=' + b64
+        self.driver.get(proxy_signal_url)
         self.driver.get(node.name)
        
         # There is an issue if the link is in the same domain but then
@@ -199,19 +206,28 @@ def auth_handler(driver, url):
 
 if __name__ == "__main__":
     URL = "https://www.etsy.com/"
-    # d = webdriver.Firefox() 
+
+    myproxy = '127.0.0.1:8080'
+
+    proxy = Proxy({
+        'proxyType': ProxyType.MANUAL,
+        'httpProxy': myproxy,
+        'sslProxy':myproxy,
+        'noProxy':''
+    })
+    d = webdriver.Firefox(proxy=proxy) 
+    
     service_args = [
         '--proxy=127.0.0.1:8080',
         '--ignore-ssl-errors=true',
         '--web-security=false',
-#        '--proxy-type=sock5',
+        '--ssl-protocol=any',
     ]
-    d = webdriver.PhantomJS(executable_path='/home/wil/libs/node_modules/phantomjs/lib/phantom/bin/phantomjs', service_args=service_args)
+    #d = webdriver.PhantomJS(executable_path='/home/wil/libs/node_modules/phantomjs/lib/phantom/bin/phantomjs', service_args=service_args)
 
     spider = SiteSpider(d, URL, depth=2, delay=5)
     #spider.auth(auth_handler)
     
-    spider.add_subscriber(EventHandler.EventHandler())
     spider.add_subscriber(EventHandler.ExternalContent(d, URL,path_depth=2 ))
     spider.crawl()
     print spider.get_link_graph().get_ascii(show_internal=True, attributes=["path"])
