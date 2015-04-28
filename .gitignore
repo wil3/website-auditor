@@ -1,3 +1,7 @@
 *.pyc
 *.log
 *~
+*.pem
+*.csv
+*.ods
+.~*

@@ -199,14 +199,20 @@ def auth_handler(driver, url):
 
 if __name__ == "__main__":
     URL = "https://www.etsy.com/"
-    d = webdriver.Firefox() 
-    # d = webdriver.PhantomJS(executable_path='/home/wil/libs/node_modules/phantomjs/lib/phantom/bin/phantomjs')
+    # d = webdriver.Firefox() 
+    service_args = [
+        '--proxy=127.0.0.1:8080',
+        '--ignore-ssl-errors=true',
+        '--web-security=false',
+#        '--proxy-type=sock5',
+    ]
+    d = webdriver.PhantomJS(executable_path='/home/wil/libs/node_modules/phantomjs/lib/phantom/bin/phantomjs', service_args=service_args)
 
     spider = SiteSpider(d, URL, depth=2, delay=5)
     #spider.auth(auth_handler)
     
     spider.add_subscriber(EventHandler.EventHandler())
-    spider.add_subscriber(EventHandler.ExternalContent(d, URL))
+    spider.add_subscriber(EventHandler.ExternalContent(d, URL,path_depth=2 ))
     spider.crawl()
     print spider.get_link_graph().get_ascii(show_internal=True, attributes=["path"])
     
