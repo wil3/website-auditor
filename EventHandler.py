@@ -98,8 +98,6 @@ class ExternalContent(SpiderEventListener):
     #def _fingerprint(self, is_mixed, page, external_domain):
     #    fp_logger.info(str(is_mixed) + "," + page + "," + external_domain)
 
-
-
 class CookieHandler(SpiderEventListener):
     def __init__(self, driver, domain):
         self.driver = driver
@@ -113,12 +111,11 @@ class CookieHandler(SpiderEventListener):
         for cookie in [(c['name'], c['value']) for c in cookies]:
             if cookie[0] not in self.cookie_names:
                 self.cookie_names.add(cookie[0])
+                cookie_logger.info(str(time.time()) + "," + 'cookie_name' + "," + cookie[0])
             if len(cookie[1]) > self.threshold:
                 if html.find(cookie[1]) > 0:
-                    cookie_logger.info(str(time.time()) + "," + 'EMBEDDED COOKIE VALUE, ' + str(cookie))
+                    cookie_logger.info(str(time.time()) + "," + 'embedded_cookie' + "," + str(cookie))
         
-        cookie_logger.info(str(time.time()) + "," + 'COOKIE NAMES, ' + str(self.cookie_names))
-
 class MixedContent(SpiderEventListener):
     def __init__(self, driver, domain):
         self.domain = urlparse(domain).netloc
@@ -139,10 +136,11 @@ class MixedContent(SpiderEventListener):
             self.https_count += 1
         self.total_count += 1
         t = str(time.time())
-        mixed_logger.info(t + "," + 'http sites, ' + str(self.http_sites))
-        mixed_logger.info(t + "," + 'http count, ' + str(self.http_count))
-        mixed_logger.info(t + "," + 'https count, ' + str(self.https_count))
-        mixed_logger.info(t + "," + 'total count, ' + str(self.total_count))
+        for http_site in http_sites:
+            mixed_logger.info(t + "," + 'http_site,' + str(self.http_site))
+        mixed_logger.info(t + "," + 'http_count,' + str(self.http_count))
+        mixed_logger.info(t + "," + 'https_count,' + str(self.https_count))
+        mixed_logger.info(t + "," + 'total_count,' + str(self.total_count))
 
         audios = self.driver.find_elements_by_tag_name("audio")
         self._extract_src(audios, "src")
@@ -181,7 +179,7 @@ class MixedContent(SpiderEventListener):
                 scheme = parse.scheme
 
                 if scheme == 'http':
-                    mixed_logger.info(str(time.time()) + "," + "FOUND MIXED CONTENT, " + str(page) + " tag=" + str(el.tag_name) + " src=" + str(src))
+                    mixed_logger.info(str(time.time()) + "," + "mixed_content," + str(page) + "," + str(el.tag_name) + "," + str(src))
                 
                 if not(netloc in self.external):
                     self.external.add(netloc)
