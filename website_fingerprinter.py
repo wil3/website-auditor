@@ -28,6 +28,12 @@ class SitePage():
         a = [ "\t" + str(t) + "\n" for t in self.transactions]
         b = "".join(a)
         return str(self.url) + "\n" + b #pprint.pformat(self.transactions)
+    def rx(self):
+        return sum([ t.len for t in self.transactions if t.flow == Transaction.RESPONSE])
+
+    def tx(self):
+        return sum([ t.len for t in self.transactions if t.flow == Transaction.REQUEST])
+        
 
 class Transaction():
     REQUEST = 'REQUEST' 
@@ -116,6 +122,10 @@ class PageFingerprintProcessor():
 #for key in pages:
 #    print key + " " + str(len(pages[key]))
 
+def print_stats(fps):
+    for f in fps:
+        logger.info(f.url)
+        logger.info("Bytes send" + str(f.tx())
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process MITM requests to form page fingerprints')

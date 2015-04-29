@@ -119,8 +119,10 @@ class SiteSpider:
 
     def _call_subscribers(self):
         for s in self.subscribers:
-            s.on_page_visited()
-
+            try:
+                s.on_page_visited()
+            except:
+                pass
     def _crawl(self, node):
         # Make request for the page
         self.url_cache.cache(node.name)
