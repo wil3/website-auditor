@@ -14,7 +14,7 @@ class SitePage():
     def __init__(self, url):
         self.url = url
         self.transactions = []
-
+        self.unique_domains = {}
     def add_transaction(self, t):
         self.transactions.append(t)
 
@@ -33,8 +33,11 @@ class SitePage():
 
     def tx(self):
         return sum([ t.len for t in self.transactions if t.flow == Transaction.REQUEST])
-        
-
+    
+    def get_unique_domains(self):
+        for t in self.transactions:
+            #urlparse()
+            pass
 class Transaction():
     REQUEST = 'REQUEST' 
     RESPONSE = 'RESPONSE'
@@ -123,9 +126,12 @@ class PageFingerprintProcessor():
 #    print key + " " + str(len(pages[key]))
 
 def print_stats(fps):
-    for f in fps:
-        logger.info(f.url)
-        logger.info("Bytes send" + str(f.tx())
+    for url in fps:
+        page = fps[url]
+        logger.info(url)
+        logger.info("Bytes send " + str(page.tx()))
+        logger.info("Bytes receive " + str(page.rx()))
+        logger.info("\n")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process MITM requests to form page fingerprints')
@@ -137,5 +143,6 @@ if __name__ == "__main__":
     fingerprints = pages.get_fingerprints(filepath)
     logger.info(pprint.pformat(fingerprints))
     
+    print_stats(fingerprints)
     print "\n Results written to website_fingerprint.log\n"
 

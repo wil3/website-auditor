@@ -8,7 +8,9 @@ import pprint
 import logging
 from website_fingerprinter import *
 import operator
-
+import requests
+from requests.exceptions import SSLError 
+import re
 logger = logging.getLogger("sidechannel")
 logger.setLevel(logging.DEBUG)
 fh = logging.FileHandler('sidechannel.log')
@@ -68,12 +70,17 @@ class Resource():
 
 class ResourceTransaction():
 
-    def __init__(self, pkt_num, flow, server, client_port, len):
+    def __init__(self, pkt_num, flow, remote_ip, host, client_port, len):
         self.flow = flow
         self.pkt_num = pkt_num        
-        self.dst = server
+        self.dst = remote_ip
+        self.host = host
         self.len = len
         self.port = client_port
+        self.host_mapping = {}
+
+    def ip_host_mapping(self):
+        pass
 
     def __repr__(self):
         return self._to_str()
@@ -85,7 +92,7 @@ class ResourceTransaction():
         flow = '>'
         if self.flow == Transaction.RESPONSE:
             flow = '<'
-        return  flow + " #" + str(self.pkt_num) + " " + str(self.port) + " " +  self.dst + " " + str(self.len)
+        return  flow + " #" + str(self.pkt_num) + " " + str(self.port) + " " +  self.dst + "(" + str(self.host) + ") " + str(self.len)
 
 class SSLSideChannel():
     '''
@@ -97,6 +104,7 @@ class SSLSideChannel():
     def __init__(self, filepath, client_ip):
         self.filepath = filepath
         self.client_ip = client_ip
+        self.ip_host_mappings = {}
 
     def process(self):
         f = open(self.filepath)
@@ -114,6 +122,35 @@ class SSLSideChannel():
             page.add_transaction(resource)
         
         return page
+    
+    def _extract_domain_from_exception(self, e):
+        m = re.match('(.*match[\w\s]+)(.*)', e)
+        domains = m.group(2)
+
+        return domains.split(",")
+
+    def resolve_host(self, ip):
+        if ip == self.client_ip:
+            return None
+
+        url = "https://" + ip
+
+        try:
+            requests.get(url)
+        except SSLError as e:
+            domain = self._extract_domain_from_exception(str(e))
+            return domain[0]
+
+    def add_host_if_missing(self, ip):
+        host = None
+        #Do we have the host for the dest?
+        if not(ip in self.ip_host_mappings):
+               host = self.resolve_host(ip) 
+               if host:
+                   self.ip_host_mappings[ip] = host
+        else:
+            host = self.ip_host_mappings[ip]
+        return host
 
     def _identify(self, pcap):
         pages = []
@@ -170,13 +207,14 @@ class SSLSideChannel():
             # if a new page request
             delta_time = ts - last_request
             last_request = ts
-            
+           
+#TODO This is a hack, remove
             if delta_time > 15:
                 page = self.move_requests_to_resource(requests)
 
                 pages.append(page)
                 #logger.info(pprint.pformat(requests))
-                logger.info(pprint.pformat(page))
+                #logger.info(pprint.pformat(page))
                 #New page!
                 request_count += 1
                 requests = {}
@@ -185,42 +223,37 @@ class SSLSideChannel():
             # assume new port is being used for each resource
             #TODO make sure this is correct 
             if ip_src == self.client_ip:
-
+                
+                host = self.add_host_if_missing(ip_dst)
+                
                 if not(tcp.sport in requests):
                     requests[tcp.sport] = []
-                requests[tcp.sport].append(ResourceTransaction(pkt_counter,Transaction.REQUEST, ip_dst,tcp.sport, data_len))
+
+                r =ResourceTransaction(\
+                                       pkt_counter,\
+                                       Transaction.REQUEST, \
+                                       ip_dst,\
+                                       host,\
+                                       tcp.sport, \
+                                       data_len)
+                requests[tcp.sport].append(r)
 
             else:
+                host = self.add_host_if_missing(ip_src)
+
                 if not(tcp.dport in requests):
                     requests[tcp.dport] = []
-                requests[tcp.dport].append(\
-                        ResourceTransaction(pkt_counter, Transaction.RESPONSE, ip_src,tcp.dport, data_len))
-
-            """    
-                request_count += 1
-                if last_src != self.client_ip and last_src != None:
                     
-                    print "Request to " + last_src + " complete. Total length " + str(accum_resource_length)
-                   
-                   
-                    # New request so reset everything
-                    accum_resource_length = 0
-                    delta_time = ts - last_request
-                    print "Time lapse since last resource " + str(delta_time)
+                r = ResourceTransaction(\
+                                        pkt_counter,\
+                                        Transaction.RESPONSE,\
+                                        ip_src,\
+                                        host,\
+                                        tcp.dport,\
+                                        data_len)
 
-                    #If enough time passes we can assume it is a new page
+                requests[tcp.dport].append(r)
 
-                    last_request = ts
-            else:
-                b = tcp.data[3] + tcp.data[4]
-                data_len = int(binascii.hexlify(b), 16)
-                accum_resource_length += data_len
-                accum_length += data_len                
-            
-            if ip_src != self.client_ip and not (ip_src in server_ips):
-                server_ips.append(ip_src)
-            last_src = ip_src
-           """ 
         print "Total requests = " + str(request_count)    
         print "Total transferred to client = "  + str(accum_length) 
         print "Unique server IPs = " + str(len(server_ips))
@@ -233,6 +266,7 @@ class SSLSideChannel():
             logger.info("Resource requests " + str(len(page.transactions)))
             logger.info("Bytes sent " + str(page.tx()))
             logger.info("Bytes received " + str(page.rx()))
+            logger.info(pprint.pformat(page))
             logger.info("\n")
         #process the ips and see if multipel resolve to the same domain
 if __name__ == "__main__":
