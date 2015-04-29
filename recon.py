@@ -184,10 +184,6 @@ class SiteSpider:
             if child.advance:
                 self._crawl(child)
 
-    def print_tree(self, signal, event):
-        print "Foo-bar"
-        sys.exit(0)
-
     def get_link_graph(self):
         return self.t
 
@@ -247,4 +243,3 @@ if __name__ == "__main__":
     
     spider.get_link_graph().write(format=1, outfile=out_file_name)
     d.close()
-    
