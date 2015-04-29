@@ -27,12 +27,13 @@ class SitePage():
     def _to_str(self):
         a = [ "\t" + str(t) + "\n" for t in self.transactions]
         b = "".join(a)
-        return self.url + "\n" + b #pprint.pformat(self.transactions)
+        return str(self.url) + "\n" + b #pprint.pformat(self.transactions)
 
 class Transaction():
-
-    def __init__(self, dir, origin, resource_domain, resource_path, len):
-        self.dir = dir
+    REQUEST = 'REQUEST' 
+    RESPONSE = 'RESPONSE'
+    def __init__(self, flow, origin, resource_domain, resource_path, len):
+        self.flow = flow 
         self.origin = origin
         self.resource_domain = resource_domain
         self.resource_path = resource_path
@@ -44,7 +45,7 @@ class Transaction():
 
     def _to_str(self):
         d = '<'
-        if self.dir == 'REQUEST':
+        if self.flow == Transaction.REQUEST:
             d = '>'
         return d + " " + self.resource_domain + " "  + self.resource_path + " " + str(self.len)
 
@@ -64,7 +65,9 @@ class PageFingerprintProcessor():
             reader = csv.reader(csvfile, delimiter=',')
             for row in reader:
                 print row
+                #time is in col 1
                 dir = row[1]
+                
                 
                 page_url = row[2]
                 #Referer, can be none
@@ -116,12 +119,13 @@ class PageFingerprintProcessor():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process MITM requests to form page fingerprints')
-    parser.add_argument('log', help='Fingerprint log')
+    parser.add_argument('mitm', help='Mitm csv file')
     args = parser.parse_args()
-    filepath = args.log
+    filepath = args.mitm
 
     pages = PageFingerprintProcessor()
     fingerprints = pages.get_fingerprints(filepath)
     logger.info(pprint.pformat(fingerprints))
-
+    
+    print "\n Results written to website_fingerprint.log\n"
 

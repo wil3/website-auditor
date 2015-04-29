@@ -194,10 +194,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Provide reconnaissance for website.')
     parser.add_argument('url', help='Target website')
     parser.add_argument('-i', '--invisible', action='store_true', help='Invisible, use PhantomJS, must use with -p flag')
-    parser.add_argument('-p', '--phantom_path', help='Path of phantom executable')
+    parser.add_argument('-j', '--phantom_path', help='Path of phantom executable')
     parser.add_argument('-d', '--depth', type=int, default=2, help='Depth to look at link to determine if should advance')
     parser.add_argument('-t', '--time_delay', type=int, default=5, help='Time delay between requests')
     parser.add_argument('-o', '--out_file_name', type=str, default='tree.nw', help='File name to save tree to')
+    parser.add_argument('-p', '--proxy', help='Proxy requests using mitm.py')
     args = parser.parse_args()
     if args.invisible and not args.phantom_path:
         parser.print_usage()
@@ -213,8 +214,10 @@ if __name__ == "__main__":
             '--web-security=false',
             '--ssl-protocol=any',
         ]
-
-        d = webdriver.PhantomJS(executable_path=args.phantom_path, service_args=service_args)
+        if args.proxy:
+            d = webdriver.PhantomJS(executable_path=args.phantom_path, service_args=service_args)
+        else:
+            d = webdriver.PhantomJS(executable_path=args.phantom_path)
     else:
         proxy = Proxy({
             'proxyType': ProxyType.MANUAL,
@@ -222,7 +225,10 @@ if __name__ == "__main__":
             'sslProxy':myproxy,
             'noProxy':''
         })
-        d = webdriver.Firefox(proxy=proxy) 
+        if args.proxy:
+            d = webdriver.Firefox(proxy=proxy) 
+        else:
+            d = webdriver.Firefox() 
 
     def signal_handler(*args):
         if spider:
