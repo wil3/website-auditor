@@ -47,8 +47,11 @@ class ExternalContent(SpiderEventListener):
         links = self.driver.find_elements_by_tag_name("link")
         self._extract_src(links, "href")
         
-        embeds = self.driver.find_elements_by_tag_name("embed")
-        self._extract_src(embeds, "src")
+        try:
+            embeds = self.driver.find_elements_by_tag_name("embed")
+            self._extract_src(embeds, "src")
+        except:
+            pass
 
         iframes = self.driver.find_elements_by_tag_name("iframe")
         self._extract_src(iframes, "src")
@@ -152,9 +155,12 @@ class MixedContent(SpiderEventListener):
 
         links = self.driver.find_elements_by_tag_name("link")
         self._extract_src(links, "href")
-        
-        embeds = self.driver.find_elements_by_tag_name("embed")
-        self._extract_src(embeds, "src")
+       
+        try:
+            embeds = self.driver.find_elements_by_tag_name("embed")
+            self._extract_src(embeds, "src")
+        except:
+            pass
 
         iframes = self.driver.find_elements_by_tag_name("iframe")
         self._extract_src(iframes, "src")
