@@ -214,7 +214,7 @@ if __name__ == "__main__":
             '--ssl-protocol=any',
         ]
 
-        d = webdriver.PhantomJS(executable_path=args.p, service_args=service_args)
+        d = webdriver.PhantomJS(executable_path=args.phantom_path, service_args=service_args)
     else:
         proxy = Proxy({
             'proxyType': ProxyType.MANUAL,
