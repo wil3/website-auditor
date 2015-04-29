@@ -4,6 +4,7 @@ import dpkt
 import socket
 import math
 import binascii
+import website_fingerprinter
 
 class SSLSideChannel():
     '''
@@ -63,8 +64,13 @@ class SSLSideChannel():
            
             if ip_src != self.client_ip and ip_dst != self.client_ip:
                 continue 
+
             # A new resource is being requested by the client
             if ip_src == self.client_ip:
+
+                tcp.sport
+
+
                 request_count += 1
                 if last_src != self.client_ip and last_src != None:
                     

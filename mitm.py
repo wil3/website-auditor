@@ -4,6 +4,7 @@ import re
 import logging
 import urlparse
 import base64
+import time
 logging.basicConfig(level=logging.FATAL)
 
 logger = logging.getLogger("mitm")
@@ -53,11 +54,16 @@ class RecordInterceptor(RequestInterceptorPlugin, ResponseInterceptorPlugin):
             self.message.host = host
 	    self.message.referer = referer
 
-	    logger.info('REQUEST' + "," \
+	    logger.info(
+                str(time.time()) + "," \
+                'REQUEST' + "," \
                  + str(RecordInterceptor.current_page) + "," \
                  + str(referer) + "," \
                  + str(self.message.host) + "," \
-                 + self.message.path + "," + str(len))
+                 + self.message.path + "," + str(len) + "," \
+                 + '"' + str(headers) + '"'
+                 
+                 )
             # logger.info(headers)
 	    return data
 
@@ -75,11 +81,14 @@ class RecordInterceptor(RequestInterceptorPlugin, ResponseInterceptorPlugin):
 	    # and we want all the data we can get to make a fingerprint
 	    # For a host outside the site is an even better indication 
 	    # of the page visited
-	    logger.info('RESPONSE' + "," \
+	    logger.info(
+                str(time.time()) + "," \
+                'RESPONSE' + "," \
                  + str(RecordInterceptor.current_page) + "," \
                  + str(self.message.referer) + "," \
                  + str(self.message.host) + "," \
-                 + self.message.path + "," + str(len))
+                 + self.message.path + "," + str(len) + "," \
+                 + '"' + str(headers) + '"')
             return data
 	
 	def get_headers(self, data):

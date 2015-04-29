@@ -64,23 +64,23 @@ class PageFingerprintProcessor():
             reader = csv.reader(csvfile, delimiter=',')
             for row in reader:
                 print row
-                dir = row[0]
+                dir = row[1]
                 
-                page_url = row[1]
+                page_url = row[2]
                 #Referer, can be none
                 # If None then it is the page request by the user
-                referer = row[2]
+                referer = row[3]
                 if referer == 'None':
                     referer = None
                 else:
                     referer = urlparse.urlparse(referer).path
 
-                resource_domain = row[3]
+                resource_domain = row[4]
                 if resource_domain == '127.0.0.1:8080':
                     continue
                 
-                resource_path = urlparse.urlparse(row[4]).path
-                resource_len = int(row[5])
+                resource_path = urlparse.urlparse(row[5]).path
+                resource_len = int(row[6])
                 #ip = socket.gethostbyname(domain)
                 t = Transaction(dir, referer, resource_domain, resource_path, resource_len)
                 print t

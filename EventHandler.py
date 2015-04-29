@@ -3,6 +3,7 @@ from sets import Set
 from collections import namedtuple
 from urlparse import urlparse
 from SpiderEventListener import SpiderEventListener
+import time
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("external")
 logger.setLevel(logging.DEBUG)
@@ -89,7 +90,7 @@ class ExternalContent(SpiderEventListener):
                 # of references they have embedded
                 if not((scheme,netloc,el.tag_name) in self.external):
                     self.external.append((scheme, netloc,el.tag_name))
-                    logger.debug(el.tag_name + "," + scheme + "," + netloc + "," + src + "," + page)
+                    logger.debug(str(time.time()) + "," + el.tag_name + "," + scheme + "," + netloc + "," + src + "," + page)
     
     #def _fingerprint(self, is_mixed, page, external_domain):
     #    fp_logger.info(str(is_mixed) + "," + page + "," + external_domain)
@@ -111,9 +112,9 @@ class CookieHandler(SpiderEventListener):
                 self.cookie_names.add(cookie[0])
             if len(cookie[1]) > self.threshold:
                 if html.find(cookie[1]) > 0:
-                    cookie_logger.info('EMBEDDED COOKIE VALUE, ' + str(cookie))
+                    cookie_logger.info(str(time.time()) + "," + 'EMBEDDED COOKIE VALUE, ' + str(cookie))
         
-        cookie_logger.info('COOKIE NAMES, ' + str(self.cookie_names))
+        cookie_logger.info(str(time.time()) + "," + 'COOKIE NAMES, ' + str(self.cookie_names))
 
 class MixedContent(SpiderEventListener):
     def __init__(self, driver, domain):
@@ -134,11 +135,11 @@ class MixedContent(SpiderEventListener):
         elif scheme == 'https':
             self.https_count += 1
         self.total_count += 1
-
-        mixed_logger.info('http sites, ' + str(self.http_sites))
-        mixed_logger.info('http count, ' + str(self.http_count))
-        mixed_logger.info('https count, ' + str(self.https_count))
-        mixed_logger.info('total count, ' + str(self.total_count))
+        t = str(time.time())
+        mixed_logger.info(t + "," + 'http sites, ' + str(self.http_sites))
+        mixed_logger.info(t + "," + 'http count, ' + str(self.http_count))
+        mixed_logger.info(t + "," + 'https count, ' + str(self.https_count))
+        mixed_logger.info(t + "," + 'total count, ' + str(self.total_count))
 
         audios = self.driver.find_elements_by_tag_name("audio")
         self._extract_src(audios, "src")
@@ -174,7 +175,7 @@ class MixedContent(SpiderEventListener):
                 scheme = parse.scheme
 
                 if scheme == 'http':
-                    mixed_logger.info("FOUND MIXED CONTENT, " + str(page) + " tag=" + str(el.tag_name) + " src=" + str(src))
+                    mixed_logger.info(str(time.time()) + "," + "FOUND MIXED CONTENT, " + str(page) + " tag=" + str(el.tag_name) + " src=" + str(src))
                 
                 if not(netloc in self.external):
                     self.external.add(netloc)
