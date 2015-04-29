@@ -11,6 +11,8 @@ import EventHandler
 from sets import Set
 import base64
 import argparse 
+import signal
+import sys
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("sitespider")
@@ -182,12 +184,15 @@ class SiteSpider:
             if child.advance:
                 self._crawl(child)
 
+    def print_tree(self, signal, event):
+        print "Foo-bar"
+        sys.exit(0)
+
     def get_link_graph(self):
         return self.t
 
     def add_subscriber(self, subscriber):
         self.subscribers.append(subscriber)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Provide reconnaissance for website.')
@@ -196,11 +201,12 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--phantom_path', help='Path of phantom executable')
     parser.add_argument('-d', '--depth', type=int, default=2, help='Depth to look at link to determine if should advance')
     parser.add_argument('-t', '--time_delay', type=int, default=5, help='Time delay between requests')
+    parser.add_argument('-o', '--out_file_name', type=str, default='tree.nw', help='File name to save tree to')
     args = parser.parse_args()
     if args.invisible and not args.phantom_path:
         parser.print_usage()
 
-
+    out_file_name = args.out_file_name # hack to make handler work
     #TODO make configurable but rightnow must match mitm.py
     myproxy = '127.0.0.1:8080'
     d = None
@@ -222,13 +228,23 @@ if __name__ == "__main__":
         })
         d = webdriver.Firefox(proxy=proxy) 
 
+    def signal_handler(*args):
+        if spider:
+            t = spider.get_link_graph()
+            print "Process aborted."
+            print "Enjoy your tree."
+            print t.get_ascii(show_internal=True, attributes=["path"])
+            t.write(format=1, outfile=out_file_name)
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+
     spider = SiteSpider(d, args.url, depth=args.depth, delay=args.time_delay)
     spider.add_subscriber(EventHandler.ExternalContent(d, args.url, path_depth=args.depth ))
     spider.add_subscriber(EventHandler.MixedContent(d, args.url))
     spider.add_subscriber(EventHandler.CookieHandler(d, args.url))
     spider.crawl()
-    print spider.get_link_graph().get_ascii(show_internal=True, attributes=["path"])
+    
+    spider.get_link_graph().write(format=1, outfile=out_file_name)
     d.close()
-
-
     
