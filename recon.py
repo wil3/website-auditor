@@ -16,7 +16,7 @@ import sys
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("sitespider")
-logger.setLevel(logging.DEBUG)
+#logger.setLevel(logging.DEBUG)
 fh = logging.FileHandler('recon.log')
 logger.addHandler(fh)
 
@@ -41,7 +41,7 @@ class UrlCache:
 
 class SiteSpider:
 
-    def __init__(self, driver, target_url, depth=-1, delay=5): 
+    def __init__(self, driver, target_url, depth=-1, delay=5, mitm=False): 
         self.driver = driver
         self.target_url = target_url
         self.t = Tree()
@@ -51,6 +51,7 @@ class SiteSpider:
         self.delay = delay
         self.subscribers = []
         self.url_cache = UrlCache(self.depth)
+        self.mitm = mitm
 
     def auth(self, handler):
         handler(self.driver, self.target_url)
@@ -128,9 +129,10 @@ class SiteSpider:
         self.url_cache.cache(node.name)
 
         #Hack to tell the proxy we are requesting a new page
-        b64 = base64.b64encode(node.name)
-        proxy_signal_url = 'http://127.0.0.1:8080/?page=' + b64
-        self.driver.get(proxy_signal_url)
+        if self.mitm:
+            b64 = base64.b64encode(node.name)
+            proxy_signal_url = 'http://127.0.0.1:8080/?page=' + b64
+            self.driver.get(proxy_signal_url)
         self.driver.get(node.name)
        
         # There is an issue if the link is in the same domain but then
@@ -138,6 +140,7 @@ class SiteSpider:
         # we visit it. If this happens abort and remove from tree
         if not self._is_same_domain(self.driver.current_url):
             node.detach()
+            logger.warn("Aborting, not same domain")
             return
 
         self._call_subscribers()
@@ -195,21 +198,22 @@ class SiteSpider:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Provide reconnaissance for website.')
     parser.add_argument('url', help='Target website')
-    parser.add_argument('-i', '--invisible', action='store_true', help='Invisible, use PhantomJS, must use with -p flag')
+    #parser.add_argument('-i', '--invisible', action='store_true', help='Invisible, use PhantomJS, must use with -p flag')
+    parser.add_argument('-b', '--browser', help="Available options, ie, firefox, phantom")
     parser.add_argument('-j', '--phantom_path', help='Path of phantom executable')
     parser.add_argument('-d', '--depth', type=int, default=2, help='Depth to look at link to determine if should advance')
     parser.add_argument('-t', '--time_delay', type=int, default=5, help='Time delay between requests')
     parser.add_argument('-o', '--out_file_name', type=str, default='tree.nw', help='File name to save tree to')
     parser.add_argument('-p', '--proxy', help='Proxy requests using mitm.py')
     args = parser.parse_args()
-    if args.invisible and not args.phantom_path:
+    if args.browser == "phantom" and not args.phantom_path:
         parser.print_usage()
 
     out_file_name = args.out_file_name # hack to make handler work
     #TODO make configurable but rightnow must match mitm.py
     myproxy = '127.0.0.1:8080'
     d = None
-    if args.invisible:
+    if args.browser == "phantom":
         service_args = [
             '--proxy=127.0.0.1:8080',
             '--ignore-ssl-errors=true',
@@ -220,7 +224,8 @@ if __name__ == "__main__":
             d = webdriver.PhantomJS(executable_path=args.phantom_path, service_args=service_args)
         else:
             d = webdriver.PhantomJS(executable_path=args.phantom_path)
-    else:
+    elif args.browser == "firefox":
+
         proxy = Proxy({
             'proxyType': ProxyType.MANUAL,
             'httpProxy': myproxy,
@@ -231,7 +236,13 @@ if __name__ == "__main__":
             d = webdriver.Firefox(proxy=proxy) 
         else:
             d = webdriver.Firefox() 
+    elif args.browser == "ie":
+        d = webdriver.Ie()
+    else:
+        print "Unknown browser"
+        sys.exit(0)
 
+    #Clean up if kiling early
     def signal_handler(*args):
         if spider:
             t = spider.get_link_graph()
@@ -240,13 +251,13 @@ if __name__ == "__main__":
             print t.get_ascii(show_internal=True, attributes=["path"])
             t.write(format=1, outfile=out_file_name)
         sys.exit(0)
-
     signal.signal(signal.SIGINT, signal_handler)
 
-    spider = SiteSpider(d, args.url, depth=args.depth, delay=args.time_delay)
-    spider.add_subscriber(EventHandler.ExternalContent(d, args.url, path_depth=args.depth ))
-    spider.add_subscriber(EventHandler.MixedContent(d, args.url))
-    spider.add_subscriber(EventHandler.CookieHandler(d, args.url))
+    spider = SiteSpider(d, args.url, depth=args.depth, delay=args.time_delay, mitm=args.proxy)
+    #TODO how to dynamically add these in? Have arguments
+    #spider.add_subscriber(EventHandler.ExternalContent(d, args.url, path_depth=args.depth ))
+    #spider.add_subscriber(EventHandler.MixedContent(d, args.url))
+    #spider.add_subscriber(EventHandler.CookieHandler(d, args.url))
     spider.crawl()
     
     spider.get_link_graph().write(format=1, outfile=out_file_name)
